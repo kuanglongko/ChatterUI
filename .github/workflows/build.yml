@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
     build-android:
-        name: Build Android APK (release)
+        name: Build Android APK (release, prebuilt llama libs)
         runs-on: ubuntu-latest
         steps:
             - name: Checkout source
@@ -47,38 +47,65 @@ jobs:
                   EXPO_NO_TELEMETRY: '1'
                   CI: '1'
 
+            - name: Inject prebuilt llama.cpp native libs
+              # cui-llama.rn builds llama.cpp/ggml from source only when
+              # rnllamaBuildFromSource=true. With it OFF (default), CMake links
+              # prebuilt libs from jniLibs/<ABI>/ and compiles only the small JNI
+              # wrappers -> skips ~1h of C++ compilation.
+              run: |
+                  set -e
+                  RN_DIR="node_modules/cui-llama.rn"
+                  test -d "$RN_DIR" || { echo "cui-llama.rn not installed"; exit 1; }
+
+                  # 1) core llama libs consumed by CMake (lib<name>.so per variant)
+                  JNI_DIR="$RN_DIR/android/src/main/jniLibs/arm64-v8a"
+                  mkdir -p "$JNI_DIR"
+                  cp -v prebuilt/rnllama/arm64-v8a/*.so "$JNI_DIR/"
+
+                  # 2) Hexagon HTP DSP skeletons -> npm package bin dir (used by the
+                  #    copyhtp expo plugin) and directly into app assets (the plugin
+                  #    already ran during prebuild, before these files existed).
+                  BIN_DIR="$RN_DIR/bin/arm64-v8a"
+                  mkdir -p "$BIN_DIR"
+                  cp -v prebuilt/rnllama/htp/*.so "$BIN_DIR/"
+                  ASSET_DIR="android/app/src/main/assets/ggml-hexagon"
+                  mkdir -p "$ASSET_DIR"
+                  cp -v prebuilt/rnllama/htp/*.so "$ASSET_DIR/"
+
+                  echo "--- injected jniLibs ---"
+                  ls -lh "$JNI_DIR"
+
             - name: Tune Gradle for CI
               working-directory: android
               run: |
                   set -e
-                  echo "--- before ---"
-                  grep -iE 'proguard|shrink|jvmargs|reactNativeArchitectures' gradle.properties || true
-                  # Phones only need arm64-v8a. Building all 4 ABIs costs ~3/4 of the
-                  # native C++ time on this llama.cpp / ggml heavy project.
+                  # Force prebuilt-library mode and single ABI.
+                  if grep -q '^rnllamaBuildFromSource=' gradle.properties; then
+                    sed -i 's/^rnllamaBuildFromSource=.*/rnllamaBuildFromSource=false/' gradle.properties
+                  else
+                    echo 'rnllamaBuildFromSource=false' >> gradle.properties
+                  fi
                   if grep -q '^reactNativeArchitectures=' gradle.properties; then
                     sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a/' gradle.properties
                   else
                     echo 'reactNativeArchitectures=arm64-v8a' >> gradle.properties
                   fi
-                  # R8 minification OOMs/hangs on the 7 GB free runner with these
-                  # large native libs. Disable it (and resource shrinking) for CI.
-                  if grep -q '^android.enableProguardInReleaseBuilds=' gradle.properties; then
-                    sed -i 's/^android.enableProguardInReleaseBuilds=.*/android.enableProguardInReleaseBuilds=false/' gradle.properties
-                  else
-                    echo 'android.enableProguardInReleaseBuilds=false' >> gradle.properties
-                  fi
-                  if grep -q '^android.enableShrinkResourcesInReleaseBuilds=' gradle.properties; then
-                    sed -i 's/^android.enableShrinkResourcesInReleaseBuilds=.*/android.enableShrinkResourcesInReleaseBuilds=false/' gradle.properties
-                  else
-                    echo 'android.enableShrinkResourcesInReleaseBuilds=false' >> gradle.properties
-                  fi
+                  # R8 minification OOMs/hangs on the free runner with these large
+                  # native libs; disable minify + resource shrinking for CI.
+                  for k in android.enableProguardInReleaseBuilds android.enableShrinkResourcesInReleaseBuilds; do
+                    if grep -q "^${k}=" gradle.properties; then
+                      sed -i "s/^${k}=.*/${k}=false/" gradle.properties
+                    else
+                      echo "${k}=false" >> gradle.properties
+                    fi
+                  done
                   if grep -q '^org.gradle.jvmargs=' gradle.properties; then
                     sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8/' gradle.properties
                   else
                     echo 'org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' >> gradle.properties
                   fi
-                  echo "--- after ---"
-                  grep -iE 'proguard|shrink|jvmargs|reactNativeArchitectures' gradle.properties
+                  echo "--- effective gradle.properties ---"
+                  grep -iE 'rnllama|reactNativeArchitectures|proguard|shrink|jvmargs' gradle.properties
 
             - name: Build release APK
               working-directory: android
