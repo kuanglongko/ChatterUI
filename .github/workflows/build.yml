@@ -47,6 +47,39 @@ jobs:
                   EXPO_NO_TELEMETRY: '1'
                   CI: '1'
 
+            - name: Tune Gradle for CI
+              working-directory: android
+              run: |
+                  set -e
+                  echo "--- before ---"
+                  grep -iE 'proguard|shrink|jvmargs|reactNativeArchitectures' gradle.properties || true
+                  # Phones only need arm64-v8a. Building all 4 ABIs costs ~3/4 of the
+                  # native C++ time on this llama.cpp / ggml heavy project.
+                  if grep -q '^reactNativeArchitectures=' gradle.properties; then
+                    sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a/' gradle.properties
+                  else
+                    echo 'reactNativeArchitectures=arm64-v8a' >> gradle.properties
+                  fi
+                  # R8 minification OOMs/hangs on the 7 GB free runner with these
+                  # large native libs. Disable it (and resource shrinking) for CI.
+                  if grep -q '^android.enableProguardInReleaseBuilds=' gradle.properties; then
+                    sed -i 's/^android.enableProguardInReleaseBuilds=.*/android.enableProguardInReleaseBuilds=false/' gradle.properties
+                  else
+                    echo 'android.enableProguardInReleaseBuilds=false' >> gradle.properties
+                  fi
+                  if grep -q '^android.enableShrinkResourcesInReleaseBuilds=' gradle.properties; then
+                    sed -i 's/^android.enableShrinkResourcesInReleaseBuilds=.*/android.enableShrinkResourcesInReleaseBuilds=false/' gradle.properties
+                  else
+                    echo 'android.enableShrinkResourcesInReleaseBuilds=false' >> gradle.properties
+                  fi
+                  if grep -q '^org.gradle.jvmargs=' gradle.properties; then
+                    sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8/' gradle.properties
+                  else
+                    echo 'org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' >> gradle.properties
+                  fi
+                  echo "--- after ---"
+                  grep -iE 'proguard|shrink|jvmargs|reactNativeArchitectures' gradle.properties
+
             - name: Build release APK
               working-directory: android
               run: |
