@@ -111,7 +111,34 @@ jobs:
               working-directory: android
               run: |
                   chmod +x ./gradlew
-                  ./gradlew assembleRelease --no-daemon
+                  # PATCH: prebuilt-llama-libs - command-line -P wins over
+                  # gradle.properties, so CMake cannot silently fall back to a
+                  # source build (which has no Hexagon SDK on this runner).
+                  ./gradlew assembleRelease -PrnllamaBuildFromSource=false --no-daemon
+
+            - name: Verify prebuilt llama libs landed in the APK
+              # PATCH: prebuilt-llama-libs - a source build on a runner without the
+              # Hexagon SDK produces a "hexagon_opencl" lib with no Hexagon code,
+              # which silently removes the HTP backend from the app.
+              run: |
+                  set -e
+                  APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+                  test -n "$APK"
+                  for n in librnllama.so librnllama_v8_2_dotprod.so \
+                           librnllama_v8_2_dotprod_i8mm.so \
+                           librnllama_v8_2_dotprod_i8mm_hexagon_opencl.so; do
+                    got=$(unzip -p "$APK" "lib/arm64-v8a/$n" | sha256sum | cut -d' ' -f1)
+                    want=$(sha256sum "prebuilt/rnllama/arm64-v8a/$n" | cut -d' ' -f1)
+                    if [ "$got" != "$want" ]; then
+                      echo "::error::$n in APK does not match prebuilt/rnllama"
+                      exit 1
+                    fi
+                    echo "ok $n"
+                  done
+                  unzip -p "$APK" lib/arm64-v8a/librnllama_v8_2_dotprod_i8mm_hexagon_opencl.so \
+                    | strings | grep -q 'ggml-hex' \
+                    || { echo "::error::hexagon backend missing from APK"; exit 1; }
+                  echo "hexagon backend present"
 
             - name: Upload APK artifact
               uses: actions/upload-artifact@v4
