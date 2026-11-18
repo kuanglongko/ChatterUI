@@ -300,6 +300,8 @@ async function obtainFields(): Promise<APIBuilderParams | void> {
             messages: [...messages],
             stopSequence: stopSequence,
             stopGenerating: () => {},
+            // PATCH: session-id
+            chatId: chatId,
             chatTokenizer: async (entry, index) => {
                 // IMPORTANT - we use -1 for dummy entries
                 if (entry.id === -1) return 0

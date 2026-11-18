@@ -447,6 +447,24 @@
             "enableCustomFields": "Enable Custom Fields",
             "manageTemplates": "Manage Templates"
         },
+        "sessionId": {
+            "current": "Current Session ID",
+            "hint": "Sent as the X-Session-Id header. Stored locally only, never added to the request body.",
+            "manualLabel": "Session ID",
+            "manualPlaceholder": "Enter a session ID",
+            "mode": "Session ID Mode",
+            "modes": {
+                "auto": "Auto",
+                "manual": "Manual",
+                "off": "Off"
+            },
+            "none": "Not generated yet",
+            "offDescription": "No X-Session-Id header will be sent.",
+            "perChat": "Per-chat session ID",
+            "perChatDescription": "Generate a separate ID for each chat. When off, every chat shares one ID for this connection.",
+            "regenerate": "Regenerate",
+            "title": "Session ID"
+        },
         "templates": {
             "delete": {
                 "confirm": "Delete Template",

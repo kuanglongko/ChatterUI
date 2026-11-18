@@ -10,6 +10,7 @@ import { getNestedValue } from '@lib/utils/Parsing'
 import { APIConfiguration } from './APIBuilder.types'
 import { buildContext, ContextBuilderParams } from './ContextBuilder'
 import { buildRequest, RequestBuilderParams } from './RequestBuilder'
+import { getSessionIdHeader } from './SessionId'
 
 export type DataOutputType = 'text' | 'reasoning' | 'tool_call'
 
@@ -25,6 +26,9 @@ export interface APIBuilderParams
     onEnd: (data: string) => void
     stopSequence: string[]
     stopGenerating: () => void
+    // PATCH: session-id
+    // Active chat id, used to resolve a per-chat X-Session-Id.
+    chatId?: number
 }
 
 export const buildAndSendRequest = async (params: APIBuilderParams) => {
@@ -63,6 +67,14 @@ export const buildAndSendRequest = async (params: APIBuilderParams) => {
                 ...anthropicVersion,
                 [apiConfig.request.authHeader]: apiConfig.request.authPrefix + apiValues.key,
             }
+        }
+
+        // PATCH: session-id
+        // Single injection point for every generation request (chat, title,
+        // regenerate, continue). Empty object = header omitted entirely.
+        const sessionIdHeader = getSessionIdHeader(apiValues, params.chatId)
+        if (Object.keys(sessionIdHeader).length > 0) {
+            header = { ...header, ...sessionIdHeader }
         }
 
         const response = responses[apiConfig.request.requestType]

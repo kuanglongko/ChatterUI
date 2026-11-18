@@ -18,6 +18,8 @@ import { Logger } from '@lib/state/Logger'
 import { Theme } from '@lib/theme/ThemeManager'
 import { getNestedValue } from '@lib/utils/Parsing'
 
+import SessionIdSection from './SessionIdSection'
+
 type ConnectionEditorProps = {
     index: number
     ref: BottomSheetRef
@@ -269,6 +271,11 @@ const ConnectionEditor: React.FC<ConnectionEditorProps> = ({ index, ref, origina
                             numberOfLines={4}
                         />
                     )}
+                    {/* PATCH: session-id */}
+                    <SessionIdSection
+                        values={values}
+                        onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+                    />
                 </ScrollView>
                 <View
                     style={{

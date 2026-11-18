@@ -31,6 +31,13 @@ export interface APIValues {
     customFields?: string
     // config name is unique and defines which template to use on generation
     configName: string
+    // PATCH: session-id
+    // Optional X-Session-Id configuration. All three are optional so existing
+    // persisted connections and templates keep working unchanged; defaults are
+    // applied in lib/engine/API/SessionId.ts.
+    sessionId?: string
+    autoGenerateSessionId?: boolean
+    sessionIdPerChat?: boolean
 }
 
 // Enable and disable features as needed
