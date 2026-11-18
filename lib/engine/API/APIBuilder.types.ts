@@ -22,6 +22,9 @@ export interface UISettings {
 
 // These are the actual values being stored by ChatterUI
 export interface APIValues {
+    // PATCH: abort-support
+    // Opt-in: send POST <base>/v1/abort when the user stops generation.
+    useAbortEndpoint?: boolean
     endpoint: string
     modelEndpoint: string
     prefill: string

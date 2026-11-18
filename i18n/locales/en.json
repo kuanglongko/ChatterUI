@@ -387,6 +387,13 @@
         }
     },
     "connections": {
+        "abortEndpoint": {
+            "description": "When enabled, stopping generation also sends POST /v1/abort before the local connection is closed. Failures are ignored.",
+            "label": "Use /v1/abort to stop generation",
+            "title": "Abort Endpoint",
+            "urlHint": "Abort URL: {{url}}",
+            "urlInvalid": "Could not derive an abort URL from the completion URL."
+        },
         "add": {
             "apiKey": "API Key",
             "completionUrl": "Completion URL",

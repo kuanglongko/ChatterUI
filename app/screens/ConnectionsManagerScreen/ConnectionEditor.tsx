@@ -17,6 +17,7 @@ import { useDebounce } from '@lib/hooks/Debounce'
 import { Logger } from '@lib/state/Logger'
 import { Theme } from '@lib/theme/ThemeManager'
 import { getNestedValue } from '@lib/utils/Parsing'
+import AbortEndpointSection from '@screens/ConnectionsManagerScreen/AbortEndpointSection'
 
 import SessionIdSection from './SessionIdSection'
 
@@ -260,6 +261,11 @@ const ConnectionEditor: React.FC<ConnectionEditorProps> = ({ index, ref, origina
                             </Text>
                         </View>
                     )}
+                    {/* PATCH: abort-support */}
+                    <AbortEndpointSection
+                        values={values}
+                        onChange={(patch) => setValues((current) => ({ ...current, ...patch }))}
+                    />
                     {showCustomFields && (
                         <ThemedTextInput
                             label={t('connections.editor.customFields')}

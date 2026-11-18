@@ -387,6 +387,13 @@
         }
     },
     "connections": {
+        "abortEndpoint": {
+            "description": "启用后，停止生成时会在断开本地连接前发送 POST /v1/abort。失败会被忽略。",
+            "label": "使用 /v1/abort 端点停止生成",
+            "title": "Abort 端点",
+            "urlHint": "Abort 地址：{{url}}",
+            "urlInvalid": "无法从补全地址推导出 abort URL。"
+        },
         "add": {
             "apiKey": "API 密钥",
             "completionUrl": "完成 URL",

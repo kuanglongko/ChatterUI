@@ -15,6 +15,7 @@ import { Characters } from '../state/Characters'
 import { Logger } from '../state/Logger'
 import { APIBuilderParams, buildAndSendRequest } from './API/APIBuilder'
 import { APIConfiguration, APIValues } from './API/APIBuilder.types'
+import { sendAbortRequest } from './API/AbortEndpoint'
 import { APIManager } from './API/APIManagerState'
 import { getDataSources } from './DataSources'
 import { localInference } from './LocalInference'
@@ -157,6 +158,13 @@ async function chatInferenceStream() {
     const abort = await buildAndSendRequest(fields)
     useInference.getState().setAbort(() => {
         Logger.debug('Running Abort')
+        // PATCH: abort-support
+        // Fire-and-forget first, then drop the local connection as before.
+        sendAbortRequest({
+            apiConfig: fields.apiConfig,
+            apiValues: fields.apiValues,
+            chatId: Chats.useChatState.getState().id,
+        })
         abort?.()
     })
 }
