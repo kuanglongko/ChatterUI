@@ -3,6 +3,7 @@ import { t } from 'i18next'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import { getTTSClient } from '@lib/engine/TTS'
 import { Storage } from '@lib/enums/Storage'
 import { Logger } from '@lib/state/Logger'
 import { createMMKVStorage } from '@lib/storage/MMKV'
@@ -75,12 +76,14 @@ export const useTTSStore = create<TTSState>()(
                 const currentSpeaker = get().voice
 
                 Logger.info('Starting TTS')
-                if (currentSpeaker === undefined) {
+                // PATCH: network-tts — network backends do not need a system voice.
+                if (getTTSClient().requiresVoice && currentSpeaker === undefined) {
                     Logger.errorToast(t('tts.nospeaker'))
                     clearIndex()
                     return
                 }
-                if (await Speech.isSpeakingAsync()) await Speech.stop()
+                const ttsClient = getTTSClient()
+                if (await ttsClient.isSpeaking()) await ttsClient.stop()
                 const filter = /([。…！？、!?.,*"])/
                 const filteredchunks: string[] = []
                 const chunks = text.split(filter)
@@ -115,7 +118,8 @@ export const useTTSStore = create<TTSState>()(
             stopTTS: async () => {
                 Logger.info('TTS stopped')
                 set({ buffer: '', activeSwipeId: undefined, pauseLive: get().liveTTS })
-                await Speech.stop()
+                // PATCH: network-tts
+                await getTTSClient().stop()
             },
             setEnabled: (b: boolean) => {
                 set({ enabled: b })
@@ -137,13 +141,12 @@ export const useTTSStore = create<TTSState>()(
             },
             speak: (text, onDone = () => {}, onStop = () => {}) => {
                 const currentSpeaker = get().voice
-                Speech.speak(text, {
-                    language: currentSpeaker?.language,
-                    voice: currentSpeaker?.identifier,
-                    rate: get().rate,
-                    onDone: onDone,
-                    onStopped: onStop,
-                })
+                // PATCH: network-tts
+                getTTSClient().speak(
+                    text,
+                    { voice: currentSpeaker, rate: get().rate },
+                    { onDone: onDone, onStopped: onStop }
+                )
             },
 
             handleEndGeneration: async (swipeId, text) => {
@@ -158,7 +161,8 @@ export const useTTSStore = create<TTSState>()(
 
             handleStartGeneration: async (swipeId) => {
                 if (get().enabled && get().liveTTS) {
-                    await Speech.stop()
+                    // PATCH: network-tts
+                    await getTTSClient().stop()
                     set({ activeSwipeId: swipeId })
                 }
                 set({ pauseLive: false })

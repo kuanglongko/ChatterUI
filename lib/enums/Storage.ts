@@ -16,4 +16,6 @@ export enum Storage {
     ChatStyle = 'storage-chat-text-styling',
     Language = 'storage-language',
     LorebookPreferences = 'storage-lorebook-preference',
+    // PATCH: network-tts
+    NetworkTTS = 'network-tts-storage',
 }

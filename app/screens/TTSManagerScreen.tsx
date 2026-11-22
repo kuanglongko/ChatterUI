@@ -11,6 +11,8 @@ import ThemedSwitch from '@components/input/ThemedSwitch'
 import ThemedTextInput from '@components/input/ThemedTextInput'
 import SectionTitle from '@components/text/SectionTitle'
 import HeaderTitle from '@components/views/HeaderTitle'
+import NetworkTTSSection from '@components/views/NetworkTTSSection'
+import { getTTSClient } from '@lib/engine/TTS'
 import { Logger } from '@lib/state/Logger'
 import { useTTSStore } from '@lib/state/TTS'
 import { Theme } from '@lib/theme/ThemeManager'
@@ -70,7 +72,7 @@ const TTSManagerScreen = () => {
                 onChangeValue={(value) => {
                     if (value) {
                         getVoices(true)
-                    } else Speech.stop()
+                    } else getTTSClient().stop()
                     setEnabled(value)
                 }}
             />
@@ -105,6 +107,8 @@ const TTSManagerScreen = () => {
                 value={rate}
                 onValueChange={setRate}
             />
+
+            <NetworkTTSSection />
 
             <SectionTitle style={{ marginTop: 8 }}>
                 {t('tts.language')} ({Object.keys(languageList).length})
@@ -158,15 +162,12 @@ const TTSManagerScreen = () => {
                     label={t('common.actions.test')}
                     variant="secondary"
                     onPress={() => {
-                        if (voice === undefined) {
+                        const client = getTTSClient()
+                        if (client.requiresVoice && voice === undefined) {
                             Logger.warnToast(t('tts.nospeaker'))
                             return
                         }
-                        Speech.speak(testAudioText, {
-                            language: voice.language,
-                            voice: voice.identifier,
-                            rate: rate,
-                        })
+                        client.speak(testAudioText, { voice, rate })
                     }}
                 />
             </View>
