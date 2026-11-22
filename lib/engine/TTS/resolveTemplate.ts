@@ -9,8 +9,9 @@ import { TTSError } from './TTSClient'
  *   a URL. Encoding it twice (query params appended later) would turn spaces
  *   into `%2520`, so callers choose between `encode = true` (URL) and
  *   `encode = false` (form/JSON body).
- * - `{{speed}}` / `{{speakSpeed}}` are pre-formatted strings and never
- *   encoded (a percent-formatted `100%` must stay `100%`).
+ * - `{{speed}}` / `{{speakSpeed}}` are pre-formatted strings; they follow the
+ *   same encoding rule as every other value (percent format becomes `100%25`
+ *   in a URL, which the server decodes back to `100%`).
  * - Any other name comes from the user's `params` list.
  * - Unknown names throw a CONFIG error instead of silently expanding to "".
  */
@@ -44,10 +45,10 @@ const substitute = (
     depth: number
 ): string =>
     template.replace(PLACEHOLDER, (_, name: string) => {
-        if (name === 'speed' || name === 'speakSpeed') return context.speed
-
         let value: string
-        if (name === 'text') {
+        if (name === 'speed' || name === 'speakSpeed') {
+            value = context.speed
+        } else if (name === 'text') {
             value = context.text
         } else {
             const param = context.params[name]

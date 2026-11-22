@@ -1010,6 +1010,7 @@
             "test": "试听",
             "stop": "停止",
             "reset": "重置",
+            "requestPreview": "实际请求 URL 预览",
             "failed": "网络 TTS 失败"
         },
         "nospeaker": "未选择扬声器",

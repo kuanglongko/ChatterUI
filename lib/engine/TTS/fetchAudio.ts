@@ -211,10 +211,11 @@ export const fetchAudio = async (
         else externalSignal.addEventListener('abort', onExternalAbort)
     }
 
+    const timeoutMs = Math.min(120000, Math.max(1000, config.timeoutMs))
     const timer = setTimeout(() => {
         timedOut = true
         controller.abort()
-    }, config.timeoutMs)
+    }, timeoutMs)
 
     try {
         let response: FetchResponse

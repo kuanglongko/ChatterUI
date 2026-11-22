@@ -1,5 +1,5 @@
 // PATCH: network-tts
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, View } from 'react-native'
 
@@ -9,6 +9,7 @@ import StringArrayEditor from '@components/input/StringArrayEditor'
 import ThemedTextInput from '@components/input/ThemedTextInput'
 import Accordion from '@components/views/Accordion'
 import { createTTSClient, type TTSClient } from '@lib/engine/TTS'
+import { buildAudioRequest } from '@lib/engine/TTS/fetchAudio'
 import type { NetworkTTSConfig } from '@lib/engine/TTS/NetworkTTSConfig'
 import { useNetworkTTSStore } from '@lib/state/NetworkTTS'
 import { Theme } from '@lib/theme/ThemeManager'
@@ -38,16 +39,32 @@ const NumberField: React.FC<NumberFieldProps> = ({
     onChangeValue,
 }) => {
     const [text, setText] = useState(String(value))
+    // While focused the input owns its text: syncing it from `value` on every
+    // keystroke is what made "0.5" jump to "0.1" (the store clamps "0").
+    const focused = useRef(false)
 
     useEffect(() => {
-        setText(String(value))
+        if (!focused.current) setText(String(value))
     }, [value])
+
+    const clamp = (parsed: number) =>
+        Math.min(max, Math.max(min, integer ? Math.round(parsed) : parsed))
 
     const handleChange = (next: string) => {
         setText(next)
         const parsed = Number(next)
-        if (!Number.isFinite(parsed)) return
-        const clamped = Math.min(max, Math.max(min, integer ? Math.round(parsed) : parsed))
+        if (!next.trim() || !Number.isFinite(parsed)) return
+        onChangeValue(clamp(parsed))
+    }
+
+    const commit = () => {
+        const parsed = Number(text)
+        if (!text.trim() || !Number.isFinite(parsed)) {
+            setText(String(value))
+            return
+        }
+        const clamped = clamp(parsed)
+        setText(String(clamped))
         onChangeValue(clamped)
     }
 
@@ -57,6 +74,17 @@ const NumberField: React.FC<NumberFieldProps> = ({
             value={text}
             keyboardType={integer ? 'number-pad' : 'decimal-pad'}
             onChangeText={handleChange}
+            onFocus={() => {
+                focused.current = true
+            }}
+            onBlur={() => {
+                focused.current = false
+                commit()
+            }}
+            onSubmitEditing={() => {
+                focused.current = false
+                commit()
+            }}
         />
     )
 }
@@ -69,6 +97,16 @@ const NetworkTTSSection = () => {
     const [preview, setPreview] = useState<TTSClient | null>(null)
 
     const update = (patch: Partial<NetworkTTSConfig>) => setConfig(patch)
+
+    // Shows the URL that will actually be requested, so template problems and
+    // speed substitution are visible without reading logs.
+    let resolvedUrl = ''
+    let resolvedUrlError = ''
+    try {
+        resolvedUrl = buildAudioRequest(config, testText.trim() || 'test', 1).url
+    } catch (error) {
+        resolvedUrlError = error instanceof Error ? error.message : String(error)
+    }
 
     const stopPreview = () => {
         void preview?.stop()
@@ -150,7 +188,7 @@ const NetworkTTSSection = () => {
                         />
 
                         <NumberField
-                            label={t('tts.network.speedScale')}
+                            label={`${t('tts.network.speedScale')} (0.1–5)`}
                             value={config.speedScale}
                             min={0.1}
                             max={5}
@@ -209,7 +247,7 @@ const NetworkTTSSection = () => {
                         />
 
                         <NumberField
-                            label={t('tts.network.timeout')}
+                            label={`${t('tts.network.timeout')} (1000–120000)`}
                             value={config.timeoutMs}
                             min={1000}
                             max={120000}
@@ -217,7 +255,7 @@ const NetworkTTSSection = () => {
                             onChangeValue={(timeoutMs) => update({ timeoutMs })}
                         />
                         <NumberField
-                            label={t('tts.network.maxChars')}
+                            label={`${t('tts.network.maxChars')} (50–4000)`}
                             value={config.maxCharsPerRequest}
                             min={50}
                             max={4000}
@@ -225,7 +263,7 @@ const NetworkTTSSection = () => {
                             onChangeValue={(maxCharsPerRequest) => update({ maxCharsPerRequest })}
                         />
                         <NumberField
-                            label={t('tts.network.keepCacheDays')}
+                            label={`${t('tts.network.keepCacheDays')} (0–365)`}
                             value={config.keepCacheDays}
                             min={0}
                             max={365}
@@ -268,6 +306,16 @@ const NetworkTTSSection = () => {
                             value={testText}
                             onChangeText={setTestText}
                         />
+                        <Text
+                            selectable
+                            style={{
+                                color: resolvedUrlError ? color.text._400 : color.text._300,
+                                fontSize: fontSize.s,
+                            }}>
+                            {t('tts.network.requestPreview')}
+                            {'\n'}
+                            {resolvedUrlError || resolvedUrl}
+                        </Text>
                         <View style={styles.row}>
                             <ThemedButton
                                 label={t('tts.network.test')}
