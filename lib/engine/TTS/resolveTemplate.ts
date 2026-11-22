@@ -31,12 +31,27 @@ export const formatSpeed = (speed: number, format: 'raw' | 'percent' | 'int'): s
     return String(Number(speed.toFixed(2)))
 }
 
-/** Speed actually sent to the server: app rate * user scale, formatted. */
+/**
+ * Speed actually sent to the server: app rate * user scale, formatted.
+ *
+ * `custom` exists for servers whose unit is not 1.0 (e.g. 10 = 1x, 20 = 2x):
+ * the user enters the value that represents 1x and the product is sent as-is.
+ */
 export const resolveSpeed = (
     rate: number | undefined,
     scale: number,
-    format: 'raw' | 'percent' | 'int'
-): string => formatSpeed(Math.min(5, Math.max(0.1, (rate ?? 1) * scale)), format)
+    format: 'raw' | 'percent' | 'int' | 'custom',
+    customSpeedValue = 10
+): string => {
+    // Keep a sane floor/ceiling, but do not cap at 5: 10/20 style units are
+    // legitimate and must survive.
+    const product = Math.min(10000, Math.max(0.01, (rate ?? 1) * scale))
+    if (format === 'custom') {
+        const unit = Math.min(1000, Math.max(0.01, customSpeedValue || 10))
+        return String(Number((product * unit).toFixed(2)))
+    }
+    return formatSpeed(product, format)
+}
 
 const substitute = (
     template: string,

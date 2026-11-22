@@ -38,7 +38,7 @@ export const useNetworkTTSStore = create<NetworkTTSState>()(
         {
             name: Storage.NetworkTTS,
             storage: createMMKVStorage(),
-            version: 1,
+            version: 2,
             partialize: (state) => ({
                 provider: state.provider,
                 config: state.config,

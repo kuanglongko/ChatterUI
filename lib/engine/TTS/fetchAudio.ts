@@ -43,6 +43,14 @@ const hasTextPlaceholder = (config: NetworkTTSConfig): boolean => {
     return config.params.some((line) => line.includes('{{text}}'))
 }
 
+export type AudioRequestOptions = {
+    /**
+     * `false` builds a human-readable request (no percent-encoding), used only
+     * for the settings preview. Real requests always use `true`.
+     */
+    encodeUrl?: boolean
+}
+
 /**
  * Turns config + text into a concrete HTTP request.
  * Kept separate from `fetchAudio` so the cache key can be computed without
@@ -51,8 +59,10 @@ const hasTextPlaceholder = (config: NetworkTTSConfig): boolean => {
 export const buildAudioRequest = (
     config: NetworkTTSConfig,
     text: string,
-    rate?: number
+    rate?: number,
+    options: AudioRequestOptions = {}
 ): AudioRequest => {
+    const encodeUrl = options.encodeUrl ?? true
     if (!config.urlTemplate.trim()) {
         throw new TTSError('CONFIG', 'TTS URL template is empty')
     }
@@ -63,11 +73,11 @@ export const buildAudioRequest = (
     const params = parseParamLines(config.params)
     const context = {
         text,
-        speed: resolveSpeed(rate, config.speedScale, config.speedFormat),
+        speed: resolveSpeed(rate, config.speedScale, config.speedFormat, config.customSpeedValue),
         params,
     }
 
-    const url = substituteTemplate(config.urlTemplate, context, true)
+    const url = substituteTemplate(config.urlTemplate, context, encodeUrl)
     const method = config.method
     const headers: Record<string, string> = {
         Accept: acceptHeader(config.audioContentType),
@@ -81,13 +91,18 @@ export const buildAudioRequest = (
     const location = method === 'GET' ? 'query' : config.paramLocation
     const used = templateNames(config.urlTemplate)
 
+    const encodePairs = (pairs: [string, string][]) =>
+        encodeUrl
+            ? new URLSearchParams(pairs).toString()
+            : pairs.map(([name, value]) => `${name}=${value}`).join('&')
+
+    const paramPairs: [string, string][] = Object.entries(params).map(([name, template]) => [
+        name,
+        substituteTemplate(template, context, false),
+    ])
+
     if (location === 'query') {
-        const search = new URLSearchParams()
-        for (const [name, template] of Object.entries(params)) {
-            if (used.has(name)) continue
-            search.set(name, substituteTemplate(template, context, false))
-        }
-        const query = search.toString()
+        const query = encodePairs(paramPairs.filter(([name]) => !used.has(name)))
         if (query) {
             const separator = url.includes('?') ? '&' : '?'
             return { url: `${url}${separator}${query}`, method, headers }
@@ -96,12 +111,8 @@ export const buildAudioRequest = (
     }
 
     if (location === 'form') {
-        const form = new URLSearchParams()
-        for (const [name, template] of Object.entries(params)) {
-            form.set(name, substituteTemplate(template, context, false))
-        }
         setHeader(headers, 'Content-Type', 'application/x-www-form-urlencoded')
-        return { url, method, headers, body: form.toString() }
+        return { url, method, headers, body: encodePairs(paramPairs) }
     }
 
     const json: Record<string, string> = {}

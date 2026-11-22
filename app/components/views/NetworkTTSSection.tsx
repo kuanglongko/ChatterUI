@@ -98,12 +98,17 @@ const NetworkTTSSection = () => {
 
     const update = (patch: Partial<NetworkTTSConfig>) => setConfig(patch)
 
-    // Shows the URL that will actually be requested, so template problems and
-    // speed substitution are visible without reading logs.
-    let resolvedUrl = ''
+    // Readable preview: placeholders are replaced but nothing is percent-encoded,
+    // so it is obvious which values actually made it into the request.
+    let resolvedRequest = ''
     let resolvedUrlError = ''
     try {
-        resolvedUrl = buildAudioRequest(config, testText.trim() || 'test', 1).url
+        const request = buildAudioRequest(config, testText.trim() || 'test', 1, {
+            encodeUrl: false,
+        })
+        resolvedRequest = request.body
+            ? `${request.method} ${request.url}\n${request.body}`
+            : `${request.method} ${request.url}`
     } catch (error) {
         resolvedUrlError = error instanceof Error ? error.message : String(error)
     }
@@ -204,10 +209,36 @@ const NetworkTTSSection = () => {
                                     value: 'percent' as const,
                                 },
                                 { label: t('tts.network.speedInt'), value: 'int' as const },
+                                {
+                                    label: t('tts.network.speedCustom'),
+                                    value: 'custom' as const,
+                                },
                             ]}
                             selected={config.speedFormat}
                             onPress={(speedFormat) => update({ speedFormat })}
                         />
+
+                        {config.speedFormat === 'custom' && (
+                            <>
+                                <NumberField
+                                    label={`${t('tts.network.customSpeedValue')} (0.01–1000)`}
+                                    value={config.customSpeedValue ?? 10}
+                                    min={0.01}
+                                    max={1000}
+                                    onChangeValue={(customSpeedValue) =>
+                                        update({ customSpeedValue })
+                                    }
+                                />
+                                <Text
+                                    style={{
+                                        color: color.text._400,
+                                        fontSize: fontSize.s,
+                                        paddingBottom: 4,
+                                    }}>
+                                    {t('tts.network.customSpeedHint')}
+                                </Text>
+                            </>
+                        )}
 
                         <HorizontalSelector
                             label={t('tts.network.responseMode')}
@@ -314,7 +345,15 @@ const NetworkTTSSection = () => {
                             }}>
                             {t('tts.network.requestPreview')}
                             {'\n'}
-                            {resolvedUrlError || resolvedUrl}
+                            {resolvedUrlError || resolvedRequest}
+                        </Text>
+                        <Text
+                            style={{
+                                color: color.text._400,
+                                fontSize: fontSize.s,
+                                paddingBottom: 4,
+                            }}>
+                            {t('tts.network.requestPreviewHint')}
                         </Text>
                         <View style={styles.row}>
                             <ThemedButton

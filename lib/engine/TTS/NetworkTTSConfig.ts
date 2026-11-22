@@ -12,7 +12,7 @@ import { z } from 'zod'
 
 export const networkTTSMethodSchema = z.enum(['GET', 'POST'])
 export const networkTTSParamLocationSchema = z.enum(['query', 'form', 'json'])
-export const networkTTSSpeedFormatSchema = z.enum(['raw', 'percent', 'int'])
+export const networkTTSSpeedFormatSchema = z.enum(['raw', 'percent', 'int', 'custom'])
 export const networkTTSCacheModeSchema = z.enum(['none', 'memory', 'file'])
 export const networkTTSResponseModeSchema = z.enum(['binary', 'url'])
 
@@ -33,6 +33,8 @@ export const networkTTSConfigSchema = z.object({
     /** Multiplier applied to the app's playback rate before formatting. */
     speedScale: z.number().min(0.1).max(5).default(1),
     speedFormat: networkTTSSpeedFormatSchema.default('raw'),
+    /** Used by `custom`: the number the server expects for 1x (e.g. 10). */
+    customSpeedValue: z.number().min(0.01).max(1000).default(10),
     timeoutMs: z.number().int().min(1000).max(120000).default(20000),
     /** `Name: value` lines. Values may reference `{{text}}`, `{{speed}}`, `{{key}}`. */
     headers: z.array(z.string()).default([]),
